@@ -7,93 +7,157 @@ from src.bot import create_bot
 
 
 class TestBot:
-    @pytest.fixture
-    def mock_bot(self, mocker):
-        # Mock the discord.ext.commands.Bot class
-        bot_mock = mocker.MagicMock(spec=commands.Bot)
-        bot_mock.user = mocker.MagicMock(spec=discord.ClientUser)
-        bot_mock.user.mentioned_in = mocker.MagicMock(return_value=False)
+    def test_create_bot_intents(self):
+        """Test that create_bot creates a bot with the correct intents."""
+        with patch('discord.ext.commands.Bot') as mock_bot_class:
+            mock_bot_instance = MagicMock()
+            mock_bot_class.return_value = mock_bot_instance
 
-        # Mock the event registration methods
-        events = {}
+            bot = create_bot()
 
-        def register_event(event_name):
-            def decorator(func):
-                events[event_name] = func
+            # Verify Bot was called once
+            mock_bot_class.assert_called_once()
+            call_args = mock_bot_class.call_args
+
+            # Check intents
+            intents = call_args[1]['intents']
+            assert isinstance(intents, discord.Intents)
+            assert intents.message_content is True
+            assert intents.members is True
+
+            # Verify the bot instance is returned
+            assert bot == mock_bot_instance
+
+    @pytest.mark.asyncio
+    async def test_on_message_bot_ignores_own_messages(self, mocker):
+        """Test that the bot ignores its own messages."""
+        with patch('discord.ext.commands.Bot') as mock_bot_class:
+            mock_bot_instance = MagicMock()
+            mock_bot_class.return_value = mock_bot_instance
+
+            # Capture the on_message handler
+            on_message_handler = None
+            def capture_event(func):
+                nonlocal on_message_handler
+                if func.__name__ == 'on_message':
+                    on_message_handler = func
                 return func
-            return decorator
 
-        bot_mock.event = register_event
-        bot_mock.events = events
+            mock_bot_instance.event = capture_event
 
-        # Mock the process_commands method
-        bot_mock.process_commands = AsyncMock()
+            # Create the bot to register event handlers
+            bot = create_bot()
 
-        # Return the mocked bot
-        return bot_mock
+            # Create a mock message from the bot itself
+            mock_message = MagicMock()
+            mock_message.author = mock_bot_instance.user
 
-    @pytest.fixture
-    def mock_commands_bot(self, mocker):
-        # Mock the Bot constructor
-        bot_mock = mocker.MagicMock()
-        mocker.patch('discord.ext.commands.Bot', return_value=bot_mock)
-        return bot_mock
+            # Call the on_message handler
+            result = await on_message_handler(mock_message)
 
-    def test_create_bot(self, mock_commands_bot):
-        # Test that create_bot creates a bot with the correct parameters
-        bot = create_bot()
-
-        # Verify Bot was created with the correct parameters
-        discord.ext.commands.Bot.assert_called_once()
-        call_args = discord.ext.commands.Bot.call_args
-
-        # Check intents (no command prefix needed for chat bot)
-        intents = call_args[1]['intents']
-        assert isinstance(intents, discord.Intents)
-        assert intents.message_content is True
-        assert intents.members is True
+            # Verify the function returns early (None) for bot's own messages
+            assert result is None
 
     @pytest.mark.asyncio
-    async def test_on_ready(self, mock_commands_bot):
-        # Create the bot
-        bot = create_bot()
-
-        # The test just verifies that create_bot() doesn't raise an exception
-        # and that the bot object is returned
-        assert bot is not None
-
-    @pytest.mark.asyncio
-    async def test_on_connect(self, mock_commands_bot):
-        # Create the bot
-        bot = create_bot()
-
-        # The test just verifies that create_bot() doesn't raise an exception
-        # Event handlers are registered internally
-        assert bot is not None
-
-    @pytest.mark.asyncio
-    async def test_on_disconnect(self, mock_commands_bot):
-        # Create the bot
-        bot = create_bot()
-
-        # The test just verifies that create_bot() doesn't raise an exception
-        # Event handlers are registered internally
-        assert bot is not None
-
-    @pytest.mark.asyncio
-    async def test_on_message_logic(self, mock_commands_bot, mocker):
-        # Test the message handling logic by testing the bot creation
-        # and verifying that the LLM integration is properly imported
-
-        # Mock the bot_response function to verify it's available
+    async def test_on_message_responds_to_mentions(self, mocker):
+        """Test that the bot responds when mentioned."""
+        # Mock the bot_response function
         mock_bot_response = mocker.patch('src.bot.bot_response', return_value="Test response")
 
-        # Create the bot
-        bot = create_bot()
+        with patch('discord.ext.commands.Bot') as mock_bot_class:
+            mock_bot_instance = MagicMock()
+            mock_bot_class.return_value = mock_bot_instance
 
-        # Verify the bot was created successfully
-        assert bot is not None
+            # Capture the on_message handler
+            on_message_handler = None
+            def capture_event(func):
+                nonlocal on_message_handler
+                if func.__name__ == 'on_message':
+                    on_message_handler = func
+                return func
 
-        # Verify that bot_response is available (imported correctly)
-        from src.bot import bot_response
-        assert bot_response is not None
+            mock_bot_instance.event = capture_event
+
+            # Create the bot to register event handlers
+            bot = create_bot()
+
+            # Create a mock message that mentions the bot
+            mock_message = MagicMock()
+            mock_message.author = MagicMock()  # Different from bot.user
+            mock_message.content = "Hello @bot, how are you?"
+            mock_message.channel.send = AsyncMock()
+
+            # Mock the mentioned_in method to return True
+            mock_bot_instance.user.mentioned_in.return_value = True
+
+            # Call the on_message handler
+            await on_message_handler(mock_message)
+
+            # Verify bot_response was called with the message content
+            mock_bot_response.assert_called_once_with(prompt=mock_message.content)
+
+            # Verify the response was sent to the channel
+            mock_message.channel.send.assert_called_once_with("Test response")
+
+    @pytest.mark.asyncio
+    async def test_on_message_ignores_non_mentions(self, mocker):
+        """Test that the bot ignores messages that don't mention it."""
+        # Mock the bot_response function
+        mock_bot_response = mocker.patch('src.bot.bot_response')
+
+        with patch('discord.ext.commands.Bot') as mock_bot_class:
+            mock_bot_instance = MagicMock()
+            mock_bot_class.return_value = mock_bot_instance
+
+            # Capture the on_message handler
+            on_message_handler = None
+            def capture_event(func):
+                nonlocal on_message_handler
+                if func.__name__ == 'on_message':
+                    on_message_handler = func
+                return func
+
+            mock_bot_instance.event = capture_event
+
+            # Create the bot to register event handlers
+            bot = create_bot()
+
+            # Create a mock message that doesn't mention the bot
+            mock_message = MagicMock()
+            mock_message.author = MagicMock()  # Different from bot.user
+            mock_message.content = "Hello everyone!"
+            mock_message.channel.send = AsyncMock()
+
+            # Mock the mentioned_in method to return False
+            mock_bot_instance.user.mentioned_in.return_value = False
+
+            # Call the on_message handler
+            await on_message_handler(mock_message)
+
+            # Verify bot_response was NOT called
+            mock_bot_response.assert_not_called()
+
+            # Verify no message was sent to the channel
+            mock_message.channel.send.assert_not_called()
+
+    def test_event_handlers_registered(self):
+        """Test that all expected event handlers are registered."""
+        with patch('discord.ext.commands.Bot') as mock_bot_class:
+            mock_bot_instance = MagicMock()
+            mock_bot_class.return_value = mock_bot_instance
+
+            # Track registered events
+            registered_events = []
+            def track_event(func):
+                registered_events.append(func.__name__)
+                return func
+
+            mock_bot_instance.event = track_event
+
+            # Create the bot to register event handlers
+            bot = create_bot()
+
+            # Verify all expected event handlers are registered
+            expected_events = ['on_ready', 'on_connect', 'on_disconnect', 'on_message']
+            for event in expected_events:
+                assert event in registered_events, f"Event handler {event} not registered"

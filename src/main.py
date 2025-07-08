@@ -5,8 +5,8 @@ import asyncio
 
 from dotenv import load_dotenv
 
-from bot import create_bot
-from utils.logging import setup_logging
+from src.bot import create_bot
+from src.utils.logging import setup_logging
 
 
 async def async_main():
@@ -27,8 +27,5 @@ def main():
         sys.exit(1)
     bot.run(bot_token)
 
-    asyncio.run(async_main())
-
 if __name__ == "__main__":
     main()
-
