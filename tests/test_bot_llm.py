@@ -13,6 +13,9 @@ def test_bot_response_invalid_user():
 
 # Tests if api is called with correct parameters
 def test_bot_response_ollama_api_call(mocker):
+    # Mock the environment variable
+    mocker.patch.dict('os.environ', {'OLLAMA_API_URL': 'http://127.0.0.1:11434'})
+
     # Mock the Client class
     mock_client_instance = mocker.MagicMock()
     mock_client = mocker.patch(bot_response.__module__ + ".Client", return_value=mock_client_instance)

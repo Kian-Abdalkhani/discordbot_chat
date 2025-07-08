@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from bot_llm import bot_response
+from src.bot_llm import bot_response
 import logging
 
 
@@ -13,7 +13,7 @@ def create_bot():
     intents.message_content = True
     intents.members = True
 
-    bot = commands.Bot(command_prefix="!", intents=intents)
+    bot = commands.Bot(intents=intents)
 
     @bot.event
     async def on_ready():
@@ -35,7 +35,5 @@ def create_bot():
             logger.info(f"{message.author} mentioned bot in {message.channel}")
             response = bot_response(prompt=message.content)
             await message.channel.send(response)
-
-        await bot.process_commands(message)
 
     return bot
