@@ -4,6 +4,8 @@ services:
     build: .
     depends_on:
       - ollama
+    env_file:
+      - .env
     environment:
       - OLLAMA_API_URL=http://ollama:11434
       - BOT_TOKEN=${BOT_TOKEN}
