@@ -11,7 +11,6 @@ OLLAMA_MODEL: str="boug_bot:HC"
 def get_client():
     return Client(host=os.getenv("OLLAMA_API_URL"))
 
-#TODO: make this method asynchronous using the asyncio and aiohttp packages
 async def bot_response(user: str = "user", prompt: str = "") -> str:
     # ... validation code ...
     
