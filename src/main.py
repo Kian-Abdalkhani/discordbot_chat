@@ -52,13 +52,18 @@ class MyClient(commands.Bot):
     async def on_disconnect(self):
         logger.info(f"{self.user} disconnected from discord")
 
-    async def on_message(self,message):
+    async def on_message(self, message):
         if message.author == self.user:
             return
         if self.user.mentioned_in(message):
             logger.info(f"{message.author} mentioned bot in {message.channel}")
-            response = bot_response(prompt=message.content)
-            await message.channel.send(response)
+            try:
+                response = await bot_response(prompt=message.content)
+                await message.channel.send(response)
+                logger.debug(f"Successfully responded to mention from {message.author}")
+            except Exception as e:
+                logger.error(f"Error responding to mention from {message.author}: {e}")
+                await message.channel.send("Sorry, I encountered an error while processing your message.")
 
 
 
