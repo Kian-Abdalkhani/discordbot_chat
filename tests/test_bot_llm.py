@@ -1,5 +1,5 @@
 import pytest
-from src.bot_llm import bot_response, OLLAMA_MODEL
+from services.bot_llm import bot_response, OLLAMA_MODEL
 
 # Tests blank prompts
 def test_bot_response_blank():
