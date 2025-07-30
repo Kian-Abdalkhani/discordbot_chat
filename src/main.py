@@ -64,12 +64,14 @@ class MyClient(commands.Bot):
             except Exception as e:
                 logger.error(f"Error responding to mention from {message.author}: {e}")
                 await message.channel.send("Sorry, I encountered an error while processing your message.")
+        
+        await self.process_commands(message)
 
 
 
 def main():
     # pass bot token to Client
-    bot_token = os.getenv("TEST_TOKEN")
+    bot_token = os.getenv("BOT_TOKEN")
     if not bot_token:
         logging.error("No bot token found in environment variables")
         sys.exit(1)
